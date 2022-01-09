@@ -9,95 +9,106 @@ def pipeline(aggregationModel: str)->list:
 
     aggre_filter = [
                         { "$match": {
-                                "Quantity": { 
-                                    "$gt": 0, 
-                                },
                                 "InvoiceNo": { 
-                                    "$exists": True, 
+                                    "$exists": True,
+                                   
                                 },
                                 "Description": { 
                                     "$exists": True, 
                                 },
                                 "CustomerID": { 
                                     "$ne" : nan,
-                                }
+                                },
+                                "Country": { 
+                                    "$ne" : nan,
+                                },
+                                "Quantity": { 
+                                    "$gt" : 0,
+                                }, 
                             }    
                         }
-                        ]
+                    ]
                 
     aggre_invoice = [
         
                         {"$group": 
                              
-                             { "_id": {"InvoiceNo" : "$InvoiceNo", "customerID" : "$CustomerID", "unitPrice": "$UnitPrice", "product" : "$Description", "country" : "$Country"},
+                             { "_id": {"InvoiceNo" : "$InvoiceNo", "product" : "$Description", "country" : "$Country"},
                              "TotalQuantity" : {"$sum" : "$Quantity"},
                              "TotalAmount": { "$sum": { "$multiply": [ "$UnitPrice", "$Quantity" ] } },
                         
                           }},                      
                     
-                    {"$match" : {"TotalQuantity" : {"$lte" : 100 } }},
-                    
-                    {"$project": {"_id" : "$_id.InvoiceNo", 
+                     ]
                                 
-                                "product" : "$_id.product",
-                                "CustomerID" : "$_id.customerID",
-                                "unitPrice" : "$_id.unitPrice",
-                                "TotalAmount" : "$TotalAmount",
-                                "TotalQuantity" :  "$TotalQuantity",
-                                "country" : "$_id.country"
 
-                                }
-                    },
-                        
-                    ]
-                                
-                            
     aggre_product = [                
-                   
-                    {"$match" : {"TotalQuantity" : {"$gte" : 80 } }},
-                    
-                    {"$group" : 
-                            {"_id" :  "$product", 
+                         {"$group": 
+                             {
+                             "_id": "$InvoiceNo",
+                             "country": { "$push": "$Country" },
+                             "CustomerID": { "$push": "$CustomerID" },
+                             "unitPrice": { "$push": "$UnitPrice" },
+                             "product": { "$push": "$Description" },
+
+                             "TotalQuantity" : {"$sum" : "$Quantity"},
+                             "TotalAmount": { "$sum": { "$multiply": [ "$UnitPrice", "$Quantity" ] } },
+                                                          
+                          }},
                              
-                             "MostProductSold" :  { "$max": "$TotalQuantity" },
-                    }},      
-                    
-                ]
+                         {"$sort":{"TotalQuantity":-1}},
+                         {"$limit": 1},
+
+                    ]
+
 
     aggre_customer = [
-                            
-                    {"$group" : 
-                            {"_id" :  "$CustomerID", 
-                             
-                             "MostCustomerSpent" :  { "$max": "$TotalAmount" },
-                    }},
-                            
-        
-                ]
-    
-    
-    aggre_price = [{
-                "$group" : 
-                    {"_id" : "$product", 
-        
-                     "AverageUnitPrice" : {"$min" : "$unitPrice"},
-                    
-                    }},
-                    
-                {
-                "$group" : 
-                    {"_id" : "null",
-        
-                     "AverageUnitPrice" : {"$avg" : "$AverageUnitPrice"},
-                    
-                    }},  
-                    
-                ]
-      
-    pipeline = aggre_filter + aggre_invoice
+                        {"$group": 
+                             {
+                             "_id": "$InvoiceNo",
+                             "country": { "$push": "$Country" },
+                             "CustomerID": { "$push": "$CustomerID" },
+                             "unitPrice": { "$push": "$UnitPrice" },
+                             "product": { "$push": "$Description" },
 
-    listOfModels = ["aggre_customer", "aggre_product", "aggre_price"]
-    models = [aggre_customer, aggre_product, aggre_price]
+                             "TotalQuantity" : {"$sum" : "$Quantity"},
+                             "TotalAmount": { "$sum": { "$multiply": [ "$UnitPrice", "$Quantity" ] } },
+                                                          
+                          }},
+                             
+                        {"$sort":{"TotalAmount":-1}},
+                         {"$limit": 1},
+                    ]
+    
+    
+    aggre_price = [                    
+                    
+                    {"$group": 
+                             {
+                             "_id": "$InvoiceNo",
+                             "country": { "$push": "$Country" },
+                             "CustomerID": { "$push": "$CustomerID" },
+                             "unitPrice": { "$push": "$UnitPrice" },
+                             "product": { "$push": "$Description" },
+
+                             "TotalQuantity" : {"$sum" : "$Quantity"},
+                             "TotalAmount": { "$sum": { "$multiply": [ "$UnitPrice", "$Quantity" ] } },
+                                                          
+                          }},
+                             
+                    {
+                    "$group" : 
+                        {"_id" : "null",
+            
+                        "AverageUnitPrice" : {"$avg" : {"$sum" : "$unitPrice"}},
+                        
+                        }},  
+                    ]
+      
+    pipeline = aggre_filter
+
+    listOfModels = ["aggre_invoice", "aggre_customer", "aggre_product", "aggre_price"]
+    models = [aggre_invoice, aggre_customer, aggre_product, aggre_price]
     
     for i in range(len(listOfModels)):
         if aggregationModel == listOfModels[i]:
