@@ -25,7 +25,7 @@ class ManageDataset:
         sheets = pd.ExcelFile(self.pathFile).sheet_names # Obtaining the entire of sheets in the excel file. If there is one sheet, The list dataSet will contain only one Dataset for MongoDB.
         for e in sheets:
             dfr = pd.read_excel(self.pathFile, sheet_name=e) # reading the sheet 
-            dataSet.append([ {dfr.columns[i] : dfr[dfr.columns[i]][j] for i in range(len(dfr.columns))}  for j in range(200000) ]) # Make the data in json/MongoDB format with respect to the number of columns and their values in the each one. Using a comprehension list to avoid time complexity
+            dataSet.append([ {dfr.columns[i] : dfr[dfr.columns[i]][j] for i in range(len(dfr.columns))}  for j in range(len(dfr.values)) ]) # Make the data in json/MongoDB format with respect to the number of columns and their values in the each one. Using a comprehension list to avoid time complexity
             
         return dataSet
     
@@ -93,10 +93,6 @@ class ManageDataset:
                     dataAfterConversion.append(new_e)    
                         
                 collection.insert_many(dataAfterConversion)
-            
-                
-            #nbOfClients = collection.count_documents({})
-            #print(f'There are {nbOfClients} clients')
 
             return db
             
@@ -121,7 +117,7 @@ class ManageDataset:
         result_cursors, result_dataFrame, listToConvert_df = [], [], []
         for coll in collections:
             mycollection = databaseOfProject[coll]
-            cursor = mycollection.aggregate(pipeline, allowDiskUse=True) # {"allowDiskUse": "true", }   
+            cursor = mycollection.aggregate(pipeline, allowDiskUse=True)    
             for e in cursor:
                 print(e)
                 listToConvert_df.append(e)
@@ -139,25 +135,22 @@ class ManageDataset:
     def graphics(self, df):
         """
         Give a set of charts
-        """
-        #df.groupby(['storeLocation', 'purchaseMethod'], as_index=True)['satisfaction'].mean().unstack().iplot(kind='bar', mode='group', title='Average Customer Satisfaction by Store')
-        
+        """       
         plt.figure()
-        abs(df["TotalAmount"]).plot.hist(orientation="vertical", bins=10, cumulative=False, title="Price distribution")
+        df["TotalAmount"].plot.hist(orientation="vertical", bins=100, cumulative=False, title="Price distribution")
         plt.xlabel("Price")
         plt.savefig("Price_distribution.png")
         #---------------plot products distribution----------------
         
         dff = df.groupby(["_id"]) 
-        ratio = df.groupby(["_id"])['TotalAmount'].nunique() / df.groupby(["_id"])['TotalQuantity'].nunique()    
-         
+        ratio = df["TotalAmount"] / df['TotalQuantity']
+        
         ddf = pd.DataFrame({'ratio': ratio })
         Id = [str(e[0]) for e in dff["_id"]]
         
         fig, ax = plt.subplots()
         ddf.ratio.plot(color='b', style='.-') 
          
-        #ax.set_xticks(ddf.ratio.index)
         ax.set_xticks(ddf.ratio.index)
         ax.set_xticklabels([], rotation=90)
         ax.set_ylabel('Ratio', fontsize=14)
@@ -166,36 +159,21 @@ class ManageDataset:
         fig.tight_layout()
         plt.savefig("Ratio_price_quantity.png")
         
-        counteries = list(set(df["country"]))
-                
-        fig, ax = plt.subplots()#figsize=(16,6))
-        fig.set_size_inches(30, 10) # 
-        width = 3  # the width of the bars
-        delta = -width/len(counteries)
-        
+        """
+        fig, ax = plt.subplots()
         listLabels = []
-        for e in counteries:
-            product_frequency = df.groupby(["country", "product"])['TotalQuantity'].agg('sum')[e]
-            labels = [ ee[:5] for ee in df.groupby(["country", "product"])['product'].agg('sum')[e] ]
-            listLabels.append(len(labels))
-            x = np.arange(len(labels))  # the label locations
-            
-            rects = ax.bar(x + delta, product_frequency, width, label=e)
-            delta += 2*width/len(counteries)
-            ax.legend()
-            # Add some text for labels, title and custom x-axis tick labels, etc.
-            if len(labels) >= max(listLabels):
-                ax.set_ylabel('Frequency')
-                ax.set_xticks(x)
-                ax.set_xticklabels([], rotation=90)
-                fig.tight_layout()
-            
+        df_pivot = pd.pivot_table(
+	df.groupby(["product", "country"]).sum(),
+	values="TotalQuantity",
+	index="product",
+	columns="country",
+	aggfunc=np.sum)
         
+        ax = df_pivot.plot(kind="bar", width=14)
+        ax.set_xticklabels([t if not i%30 else "" for i,t in enumerate(ax.get_xticklabels())])
+        plt.legend(ncol=3)
+        ax.set_xlabel("Product")
+        ax.set_ylabel("Frequency")
+        fig.tight_layout()
         plt.savefig("Frequency_by_product_and_country.png", bbox_inches='tight')
-         
-
-        
-    
-    
-    
-       
+        """
